@@ -43,6 +43,7 @@ TEST_MODULES = \
     getkeys.so \
     getchannels.so \
     test_lazyfree.so \
+    test_preeviction.so \
     timer.so \
     defragtest.so \
     keyspecs.so \

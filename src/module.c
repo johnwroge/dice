@@ -8588,6 +8588,7 @@ void moduleReleaseGIL(void) {
  *  - VALKEYMODULE_NOTIFY_ZSET: Sorted Set events
  *  - VALKEYMODULE_NOTIFY_EXPIRED: Expiration events
  *  - VALKEYMODULE_NOTIFY_EVICTED: Eviction events
+ *  - VALKEYMODULE_NOTIFY_PREEVICTION: Pre-eviction events (fired before key is evicted)
  *  - VALKEYMODULE_NOTIFY_STREAM: Stream events
  *  - VALKEYMODULE_NOTIFY_MODULE: Module types events
  *  - VALKEYMODULE_NOTIFY_KEYMISS: Key-miss events

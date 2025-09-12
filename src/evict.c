@@ -677,6 +677,8 @@ int performEvictions(void) {
              * we only care about memory used by the key space. */
             enterExecutionUnit(1, 0);
             delta = (long long)zmalloc_used_memory();
+            /* Send pre-eviction notification to modules before deleting the key */
+            moduleNotifyKeyspaceEvent(NOTIFY_PREEVICTION, "preeviction", keyobj, db->id);
             latencyStartMonitor(eviction_latency);
             dbGenericDelete(db, keyobj, server.lazyfree_lazy_eviction, DB_FLAG_KEY_EVICTED);
             latencyEndMonitor(eviction_latency);

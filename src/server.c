@@ -1919,6 +1919,7 @@ void createSharedObjects(void) {
     /* Shared command names */
     shared.del = createStringObject("DEL", 3);
     shared.unlink = createStringObject("UNLINK", 6);
+    shared.evict = createStringObject("EVICT", 5);
     shared.rpop = createStringObject("RPOP", 4);
     shared.lpop = createStringObject("LPOP", 4);
     shared.lpush = createStringObject("LPUSH", 5);

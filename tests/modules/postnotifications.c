@@ -69,6 +69,24 @@ static void KeySpace_PostNotificationString(ValkeyModuleCtx *ctx, void *pd) {
     ValkeyModule_FreeCallReply(rep);
 }
 
+typedef struct {
+    ValkeyModuleString *list_name;
+    ValkeyModuleString *key_name;
+} KeySpace_ListPushCtx;
+
+static void KeySpace_PostNotificationListFreePD(void *pd) {
+    KeySpace_ListPushCtx *ctx = pd;
+    ValkeyModule_FreeString(NULL, ctx->list_name);
+    ValkeyModule_FreeString(NULL, ctx->key_name);
+    ValkeyModule_Free(ctx);
+}
+
+static void KeySpace_PostNotificationList(ValkeyModuleCtx *ctx, void *pd) {
+    KeySpace_ListPushCtx *list_ctx = (KeySpace_ListPushCtx*)pd;
+    ValkeyModuleCallReply* rep = ValkeyModule_Call(ctx, "lpush", "!ss", list_ctx->list_name, list_ctx->key_name);
+    ValkeyModule_FreeCallReply(rep);
+}
+
 static int KeySpace_NotificationExpired(ValkeyModuleCtx *ctx, int type, const char *event, ValkeyModuleString *key){
     VALKEYMODULE_NOT_USED(type);
     VALKEYMODULE_NOT_USED(event);
@@ -77,6 +95,25 @@ static int KeySpace_NotificationExpired(ValkeyModuleCtx *ctx, int type, const ch
     ValkeyModuleString *new_key = ValkeyModule_CreateString(NULL, "expired", 7);
     int res = ValkeyModule_AddPostNotificationJob(ctx, KeySpace_PostNotificationString, new_key, KeySpace_PostNotificationStringFreePD);
     if (res == VALKEYMODULE_ERR) KeySpace_PostNotificationStringFreePD(new_key);
+    return VALKEYMODULE_OK;
+}
+
+static int KeySpace_NotificationPreEviction(ValkeyModuleCtx *ctx, int type, const char *event, ValkeyModuleString *key){
+    VALKEYMODULE_NOT_USED(type);
+    VALKEYMODULE_NOT_USED(event);
+
+    const char *key_str = ValkeyModule_StringPtrLen(key, NULL);
+
+    if (strncmp(key_str, "before_evicted", 14) == 0) {
+        return VALKEYMODULE_OK; /* do not count the before_evicted key */
+    }
+
+    KeySpace_ListPushCtx *list_ctx = ValkeyModule_Alloc(sizeof(KeySpace_ListPushCtx));
+    list_ctx->list_name = ValkeyModule_CreateString(NULL, "before_evicted", 14);
+    list_ctx->key_name = ValkeyModule_CreateStringFromString(NULL, key);
+    
+    int res = ValkeyModule_AddPostNotificationJob(ctx, KeySpace_PostNotificationList, list_ctx, KeySpace_PostNotificationListFreePD);
+    if (res == VALKEYMODULE_ERR) KeySpace_PostNotificationListFreePD(list_ctx);
     return VALKEYMODULE_OK;
 }
 
@@ -281,6 +318,10 @@ int ValkeyModule_OnLoad(ValkeyModuleCtx *ctx, ValkeyModuleString **argv, int arg
     }
 
     if(ValkeyModule_SubscribeToKeyspaceEvents(ctx, VALKEYMODULE_NOTIFY_EXPIRED, KeySpace_NotificationExpired) != VALKEYMODULE_OK){
+        return VALKEYMODULE_ERR;
+    }
+
+    if(ValkeyModule_SubscribeToKeyspaceEvents(ctx, VALKEYMODULE_NOTIFY_PREEVICTION, KeySpace_NotificationPreEviction) != VALKEYMODULE_OK){
         return VALKEYMODULE_ERR;
     }
 

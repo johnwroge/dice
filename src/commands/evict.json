@@ -1,0 +1,56 @@
+{
+    "EVICT": {
+        "summary": "Evicts one or more keys using the same mechanism as memory pressure eviction. If no keys are specified, evicts one random key.",
+        "complexity": "O(N) where N is the number of keys that will be evicted.",
+        "group": "generic", 
+        "since": "8.0.0",
+        "arity": -1,
+        "function": "evictCommand",
+        "command_flags": [
+            "WRITE"
+        ],
+        "acl_categories": [
+            "KEYSPACE"
+        ],
+        "command_tips": [
+            "REQUEST_POLICY:MULTI_SHARD",
+            "RESPONSE_POLICY:AGG_MERGE"
+        ],
+        "key_specs": [
+            {
+                "flags": [
+                    "RM",
+                    "DELETE"
+                ],
+                "begin_search": {
+                    "index": {
+                        "pos": 1
+                    }
+                },
+                "find_keys": {
+                    "range": {
+                        "lastkey": -1,
+                        "step": 1,
+                        "limit": 0
+                    }
+                }
+            }
+        ],
+        "reply_schema": {
+            "description": "Array of key names that were evicted.",
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        },
+        "arguments": [
+            {
+                "name": "key",
+                "type": "key",
+                "key_spec_index": 0,
+                "multiple": true,
+                "optional": true
+            }
+        ]
+    }
+}

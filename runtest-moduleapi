@@ -34,6 +34,7 @@ $TCLSH tests/test_helper.tcl \
 --single unit/moduleapi/blockedclient \
 --single unit/moduleapi/getkeys \
 --single unit/moduleapi/test_lazyfree \
+--single unit/moduleapi/test_preeviction \
 --single unit/moduleapi/defrag \
 --single unit/moduleapi/keyspecs \
 --single unit/moduleapi/hash \

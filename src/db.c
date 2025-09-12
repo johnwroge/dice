@@ -99,6 +99,23 @@ void updateLFU(robj *val) {
 robj *lookupKey(serverDb *db, robj *key, int flags) {
     dictEntry *de = dbFind(db, key->ptr);
     robj *val = NULL;
+    
+    /*
+     * If key not found and pre-miss notifications are enabled, send out a
+     * pre-miss notification to modules.
+     * Potential use: module can lazyload the key from external storage.
+     */
+    if (!de && !(flags & LOOKUP_NOPREMISS)) {
+        /* Notify modules about the pre-miss event. */
+        /* Note: this is a sync call, hence it needs to be fast */
+        moduleNotifyKeyspaceEvent(NOTIFY_PREMISS, "premiss", key, db->id);
+        
+        /*
+         * Check again if the key now exists after module notification
+         */
+        de = dbFind(db, key->ptr);
+    }
+    
     if (de) {
         val = dictGetVal(de);
         /* Forcing deletion of expired keys on a replica makes the replica
@@ -775,6 +792,99 @@ void delCommand(client *c) {
 
 void unlinkCommand(client *c) {
     delGenericCommand(c, 1);
+}
+
+/* Helper function to evict a specific key like the eviction process does */
+static int evictKey(serverDb *db, robj *keyobj) {
+    /* Check if key exists */
+    robj *value = lookupKeyWrite(db, keyobj);
+    if (!value) return 0; /* Key doesn't exist */
+
+    /* Send pre-eviction notification to modules before deleting the key */
+    moduleNotifyKeyspaceEvent(NOTIFY_PREEVICTION, "preeviction", keyobj, db->id);
+    
+    /* Delete the key using the same method as eviction */
+    int deleted = dbGenericDelete(db, keyobj, server.lazyfree_lazy_eviction, DB_FLAG_KEY_EVICTED);
+    if (deleted) {
+        server.stat_evictedkeys++;
+        signalModifiedKey(NULL, db, keyobj);
+        notifyKeyspaceEvent(NOTIFY_EVICTED, "evicted", keyobj, db->id);
+        server.dirty++;
+    }
+    return deleted;
+}
+
+/* EVICT key1 key2 ... keyN
+ * EVICT (with no arguments)
+ * 
+ * Evicts specified keys using the same mechanism as memory pressure eviction.
+ * If no keys are specified, evicts one random key.
+ * Returns array of evicted key names.
+ */
+void evictCommand(client *c) {
+    int j;
+    robj **evicted_keys = NULL;
+    int evicted_count = 0;
+    int allocated_size = 0;
+
+    if (c->argc == 1) {
+        /* No keys specified - evict one random key */
+        /* Prevent automatic propagation - we'll propagate with the specific key */
+        preventCommandPropagation(c);
+
+        /*
+         * This function dbRandomKey internally checks for the expired keys
+         * and does not return them, so we don't need to check for expiration
+         * here.
+         */
+        robj *random_key = dbRandomKey(c->db);
+        if (random_key) {
+            if (evictKey(c->db, random_key)) {
+                /* Successfully evicted */
+                evicted_keys = zmalloc(sizeof(robj*));
+                evicted_keys[0] = random_key;
+                evicted_count = 1;
+                allocated_size = 1;
+
+                /* Propagate EVICT with the specific key to AOF/replicas */
+                robj *argv[2];
+                argv[0] = shared.evict;
+                argv[1] = random_key;
+                alsoPropagate(c->db->id, argv, 2, PROPAGATE_AOF|PROPAGATE_REPL);
+            } else {
+                decrRefCount(random_key);
+            }
+        }
+    } else {
+        /* Keys specified - try to evict each one */
+        allocated_size = c->argc - 1;
+        evicted_keys = zmalloc(sizeof(robj*) * allocated_size);
+
+        for (j = 1; j < c->argc; j++) {
+            if (expireIfNeeded(c->db, c->argv[j], 0) == KEY_DELETED) {
+                /* Key was expired, don't count as evicted */
+                continue;
+            }
+
+            if (evictKey(c->db, c->argv[j])) {
+                /* Successfully evicted - store a copy of the key name */
+                evicted_keys[evicted_count] = createStringObject(c->argv[j]->ptr, sdslen(c->argv[j]->ptr));
+                evicted_count++;
+
+                /* Signal modification for replication/AOF */
+                signalModifiedKey(c, c->db, c->argv[j]);
+            }
+        }
+    }
+
+    /* Reply with array of evicted keys */
+    addReplyArrayLen(c, evicted_count);
+    for (j = 0; j < evicted_count; j++) {
+        addReplyBulk(c, evicted_keys[j]);
+        decrRefCount(evicted_keys[j]);
+    }
+
+    if (evicted_keys) zfree(evicted_keys);
 }
 
 /* EXISTS key1 key2 ... key_N.

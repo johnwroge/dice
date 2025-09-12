@@ -82,6 +82,15 @@ proc status {r property} {
     set _ [getInfoProperty [{*}$r info] $property]
 }
 
+# Return evicted_keys count from INFO stats
+proc status_evicted_keys {r} {
+    set info [$r info stats]
+    if {[regexp {evicted_keys:(\d+)} $info -> evicted_keys]} {
+        return $evicted_keys
+    }
+    return 0
+}
+
 proc waitForBgsave r {
     while 1 {
         if {[status $r rdb_bgsave_in_progress] eq 1} {
