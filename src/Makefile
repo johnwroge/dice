@@ -437,6 +437,19 @@ ENGINE_UNIT_TESTS:=$(ENGINE_NAME)-unit-tests$(PROG_SUFFIX)
 ALL_SOURCES=$(sort $(patsubst %.o,%.c,$(ENGINE_SERVER_OBJ) $(ENGINE_CLI_OBJ) $(ENGINE_BENCHMARK_OBJ)))
 
 all: $(SERVER_NAME) $(ENGINE_SENTINEL_NAME) $(ENGINE_CLI_NAME) $(ENGINE_BENCHMARK_NAME) $(ENGINE_CHECK_RDB_NAME) $(ENGINE_CHECK_AOF_NAME) $(TLS_MODULE) $(RDMA_MODULE)
+	@echo "Creating DiceDB symlinks for all binaries"
+	@ln -sf $(SERVER_NAME) dicedb-server$(PROG_SUFFIX)
+	@ln -sf $(ENGINE_CLI_NAME) dicedb-cli$(PROG_SUFFIX)
+	@ln -sf $(ENGINE_SENTINEL_NAME) dicedb-sentinel$(PROG_SUFFIX)
+	@ln -sf $(ENGINE_BENCHMARK_NAME) dicedb-benchmark$(PROG_SUFFIX)
+	@ln -sf $(ENGINE_CHECK_RDB_NAME) dicedb-check-rdb$(PROG_SUFFIX)
+	@ln -sf $(ENGINE_CHECK_AOF_NAME) dicedb-check-aof$(PROG_SUFFIX)
+	@printf '    %b %b\n' $(LINKCOLOR)LINK$(ENDCOLOR) $(BINCOLOR)dicedb-server$(PROG_SUFFIX)$(ENDCOLOR)
+	@printf '    %b %b\n' $(LINKCOLOR)LINK$(ENDCOLOR) $(BINCOLOR)dicedb-cli$(ENDCOLOR)
+	@printf '    %b %b\n' $(LINKCOLOR)LINK$(ENDCOLOR) $(BINCOLOR)dicedb-sentinel$(ENDCOLOR)
+	@printf '    %b %b\n' $(LINKCOLOR)LINK$(ENDCOLOR) $(BINCOLOR)dicedb-benchmark$(ENDCOLOR)
+	@printf '    %b %b\n' $(LINKCOLOR)LINK$(ENDCOLOR) $(BINCOLOR)dicedb-check-rdb$(ENDCOLOR)
+	@printf '    %b %b\n' $(LINKCOLOR)LINK$(ENDCOLOR) $(BINCOLOR)dicedb-check-aof$(ENDCOLOR)
 	@echo ""
 	@echo "Hint: It's a good idea to run 'make test' ;)"
 	@echo ""
@@ -558,6 +571,7 @@ commands.c: $(COMMANDS_DEF_FILENAME).def
 clean:
 	rm -rf $(SERVER_NAME) $(ENGINE_SENTINEL_NAME) $(ENGINE_CLI_NAME) $(ENGINE_BENCHMARK_NAME) $(ENGINE_CHECK_RDB_NAME) $(ENGINE_CHECK_AOF_NAME) $(ENGINE_UNIT_TESTS) $(ENGINE_LIB_NAME) unit/*.o unit/*.d *.o *.gcda *.gcno *.gcov valkey.info lcov-html Makefile.dep *.so
 	rm -f $(DEP)
+	rm -f dicedb-server$(PROG_SUFFIX) dicedb-cli$(PROG_SUFFIX) dicedb-sentinel$(PROG_SUFFIX) dicedb-benchmark$(PROG_SUFFIX) dicedb-check-rdb$(PROG_SUFFIX) dicedb-check-aof$(PROG_SUFFIX)
 
 .PHONY: clean
 

@@ -1,304 +1,115 @@
-[![codecov](https://codecov.io/gh/valkey-io/valkey/graph/badge.svg?token=KYYSJAYC5F)](https://codecov.io/gh/valkey-io/valkey)
+# DiceDB
 
-This project was forked from the open source Redis project right before the transition to their new source available licenses.
+DiceDB is a fork of [Valkey](https://valkey.io/) (a fork of Redis). DiceDB extends Valkey with additional capabilities while staying fully compatible with Valkey and Redis tooling and SDK ecosystem.
 
-This README is just a fast *quick start* document. More details can be found under [valkey.io](https://valkey.io/)
+This is a quick start guide. For full documentation, visit [dicedb.io](https://dicedb.io).
 
-What is Valkey?
---------------
-Valkey is a high-performance data structure server that primarily serves key/value workloads.
-It supports a wide range of native structures and an extensible plugin system for adding new data structures and access patterns.
+DiceDB builds on Valkey, so you may still see Valkey references in logs, metrics, and parts of the codebase.
 
-Building Valkey
---------------
+> [!NOTE]
+> DiceDB originally started as a Golang-based storage engine and offered reactivity and higher throughput as its core offering. That implementation is now archived: [dice-legacy](https://github.com/dicedb/dice-legacy). Selected features from the legacy engine will be gradually ported into the current codebase.
 
-Valkey can be compiled and used on Linux, OSX, OpenBSD, NetBSD, FreeBSD.
-We support big endian and little endian architectures, and both 32 bit
-and 64 bit systems.
+## Get Started
 
-It may compile on Solaris derived systems (for instance SmartOS) but our
-support for this platform is *best effort* and Valkey is not guaranteed to
-work as well as in Linux, OSX, and \*BSD.
+The quickest and easiest way to start using DiceDB is with the official Docker image. It comes with everything pre-configured, so you can get up and running in seconds without worrying about setup details.
 
-It is as simple as:
-
-    % make
-
-To build with TLS support, you'll need OpenSSL development libraries (e.g.
-libssl-dev on Debian/Ubuntu).
-
-To build TLS support as Valkey built-in:
-
-    % make BUILD_TLS=yes
-
-TO build TLS as Valkey module:
-
-    % make BUILD_TLS=module
-
-Note that sentinel mode does not support TLS module.
-
-To build with experimental RDMA support you'll need RDMA development libraries
-(e.g. librdmacm-dev and libibverbs-dev on Debian/Ubuntu). For now, Valkey only
-supports RDMA as connection module mode. Run:
-
-    % make BUILD_RDMA=module
-
-To build with systemd support, you'll need systemd development libraries (such 
-as libsystemd-dev on Debian/Ubuntu or systemd-devel on CentOS) and run:
-
-    % make USE_SYSTEMD=yes
-
-To append a suffix to Valkey program names, use:
-
-    % make PROG_SUFFIX="-alt"
-
-You can build a 32 bit Valkey binary using:
-
-    % make 32bit
-
-After building Valkey, it is a good idea to test it using:
-
-    % make test
-
-The above runs the main integration tests. Additional tests are started using:
-
-    % make test-unit     # Unit tests
-    % make test-modules  # Tests of the module API
-    % make test-sentinel # Valkey Sentinel integration tests
-    % make test-cluster  # Valkey Cluster integration tests
-
-More about running the integration tests can be found in
-[tests/README.md](tests/README.md) and for unit tests, see
-[src/unit/README.md](src/unit/README.md).
-
-Fixing build problems with dependencies or cached build options
----------
-
-Valkey has some dependencies which are included in the `deps` directory.
-`make` does not automatically rebuild dependencies even if something in
-the source code of dependencies changes.
-
-When you update the source code with `git pull` or when code inside the
-dependencies tree is modified in any other way, make sure to use the following
-command in order to really clean everything and rebuild from scratch:
-
-    % make distclean
-
-This will clean: jemalloc, lua, hiredis, linenoise and other dependencies.
-
-Also if you force certain build options like 32bit target, no C compiler
-optimizations (for debugging purposes), and other similar build time options,
-those options are cached indefinitely until you issue a `make distclean`
-command.
-
-Fixing problems building 32 bit binaries
----------
-
-If after building Valkey with a 32 bit target you need to rebuild it
-with a 64 bit target, or the other way around, you need to perform a
-`make distclean` in the root directory of the Valkey distribution.
-
-In case of build errors when trying to build a 32 bit binary of Valkey, try
-the following steps:
-
-* Install the package libc6-dev-i386 (also try g++-multilib).
-* Try using the following command line instead of `make 32bit`:
-  `make CFLAGS="-m32 -march=native" LDFLAGS="-m32"`
-
-Allocator
----------
-
-Selecting a non-default memory allocator when building Valkey is done by setting
-the `MALLOC` environment variable. Valkey is compiled and linked against libc
-malloc by default, with the exception of jemalloc being the default on Linux
-systems. This default was picked because jemalloc has proven to have fewer
-fragmentation problems than libc malloc.
-
-To force compiling against libc malloc, use:
-
-    % make MALLOC=libc
-
-To compile against jemalloc on Mac OS X systems, use:
-
-    % make MALLOC=jemalloc
-
-Monotonic clock
----------------
-
-By default, Valkey will build using the POSIX clock_gettime function as the
-monotonic clock source.  On most modern systems, the internal processor clock
-can be used to improve performance.  Cautions can be found here: 
-    http://oliveryang.net/2015/09/pitfalls-of-TSC-usage/
-
-To build with support for the processor's internal instruction clock, use:
-
-    % make CFLAGS="-DUSE_PROCESSOR_CLOCK"
-
-Verbose build
--------------
-
-Valkey will build with a user-friendly colorized output by default.
-If you want to see a more verbose output, use the following:
-
-    % make V=1
-
-Running Valkey
--------------
-
-To run Valkey with the default configuration, just type:
-
-    % cd src
-    % ./valkey-server
-
-If you want to provide your valkey.conf, you have to run it using an additional
-parameter (the path of the configuration file):
-
-    % cd src
-    % ./valkey-server /path/to/valkey.conf
-
-It is possible to alter the Valkey configuration by passing parameters directly
-as options using the command line. Examples:
-
-    % ./valkey-server --port 9999 --replicaof 127.0.0.1 6379
-    % ./valkey-server /etc/valkey/6379.conf --loglevel debug
-
-All the options in valkey.conf are also supported as options using the command
-line, with exactly the same name.
-
-Running Valkey with TLS:
-------------------
-
-### Running manually
-To manually run a Valkey server with TLS mode (assuming `./gen-test-certs.sh` was invoked so sample certificates/keys are available):
-
-* TLS built-in mode:
-    ```
-    ./src/valkey-server --tls-port 6379 --port 0 \
-        --tls-cert-file ./tests/tls/valkey.crt \
-        --tls-key-file ./tests/tls/valkey.key \
-        --tls-ca-cert-file ./tests/tls/ca.crt
-    ```
-
-* TLS module mode:
-    ```
-    ./src/valkey-server --tls-port 6379 --port 0 \
-        --tls-cert-file ./tests/tls/valkey.crt \
-        --tls-key-file ./tests/tls/valkey.key \
-        --tls-ca-cert-file ./tests/tls/ca.crt \
-        --loadmodule src/valkey-tls.so
-    ```
-
-Note that you can disable TCP by specifying `--port 0` explicitly.
-It's also possible to have both TCP and TLS available at the same time,
-but you'll have to assign different ports.
-
-Use `valkey-cli` to connect to the Valkey server:
-```
-./src/valkey-cli --tls \
-    --cert ./tests/tls/valkey.crt \
-    --key ./tests/tls/valkey.key \
-    --cacert ./tests/tls/ca.crt
+```bash
+docker run \
+  --name dicedb-1 -p 6379:6379 -v $(pwd)/data:/data/ \
+  dicedb:latest
 ```
 
-Specifying `--tls-replication yes` makes a replica connect to the primary.
+This command starts a DiceDB container with the `spill` module already enabled. By default, the spill module uses RocksDB and is configured with a maximum memory limit of 250MB.
 
-Using `--tls-cluster yes` makes Valkey Cluster use TLS across nodes.
+### Custom Configuration
 
-Running Valkey with RDMA:
-------------------
+If you prefer not to use the defaults and want to explicitly [configure DiceDB](https://dicedb.io/docs/conf), you can run DiceDB with explicit configuration
 
-Note that Valkey Over RDMA is an experimental feature.
-It may be changed or removed in any minor or major version.
-Currently, it is only supported on Linux.
+```bash
+docker run \
+  --name dicedb-1 -p 6379:6379 -v $(pwd)/data:/data/ \
+  dicedb:latest \
+  dicedb-server \
+  --port 6379 \
+  --maxmemory 500mb \
+  --protected-mode no \
+  --loadmodule /usr/local/lib/lib-spill.so path /data/spill/ max-memory 262144000
+```
 
-To manually run a Valkey server with RDMA mode:
+This configuration sets:
 
-    % ./src/valkey-server --protected-mode no \
-         --loadmodule src/valkey-rdma.so bind=192.168.122.100 port=6379
+- DiceDB max memory limit to 500MB
+- Spill memory limit to 250MB
 
-It's possible to change bind address/port of RDMA by runtime command:
+## What's Different
 
-    192.168.122.100:6379> CONFIG SET rdma.port 6380
+DiceDB extends Valkey with the following key capabilities:
 
-It's also possible to have both RDMA and TCP available, and there is no
-conflict of TCP(6379) and RDMA(6379), Ex:
+- [dicedb-spill](https://github.com/dicedb/dicedb-spill) - transparently persists evicted keys to disk and restores them on cache misses, enabling larger working sets within fixed memory budgets.
 
-    % ./src/valkey-server --protected-mode no \
-         --loadmodule src/valkey-rdma.so bind=192.168.122.100 port=6379 \
-         --port 6379
+## Building DiceDB from Source
 
-Note that the network card (192.168.122.100 of this example) should support
-RDMA. To test a server supports RDMA or not:
+DiceDB supports Linux, macOS, OpenBSD, NetBSD, and FreeBSD. Both little-endian and big-endian systems are supported, including 32-bit and 64-bit architectures.
 
-    % rdma res show (a new version iproute2 package)
-Or:
+Basic build:
 
-    % ibv_devices
+```
+make
+make test
+```
 
+For additional build and configuration options, refer to [DiceDB documentation](https://dicedb.io).
 
-Playing with Valkey
-------------------
+## Running DiceDB
 
-You can use valkey-cli to play with Valkey. Start a valkey-server instance,
-then in another terminal try the following:
+Start server with default configuration:
 
-    % cd src
-    % ./valkey-cli
-    valkey> ping
-    PONG
-    valkey> set foo bar
-    OK
-    valkey> get foo
-    "bar"
-    valkey> incr mycounter
-    (integer) 1
-    valkey> incr mycounter
-    (integer) 2
-    valkey>
+```
+./src/dicedb-server
+```
 
-Installing Valkey
------------------
+Start with a configuration file:
 
-In order to install Valkey binaries into /usr/local/bin, just use:
+```
+./src/dicedb-server /path/to/valkey.conf
+```
 
-    % make install
+You can also pass configuration options directly:
 
-You can use `make PREFIX=/some/other/directory install` if you wish to use a
-different destination.
+```
+./src/dicedb-server --port 9999 --replicaof 127.0.0.1 6379
+./src/dicedb-server --loglevel debug
+```
 
-_Note_: For compatibility with Redis, we create symlinks from the Redis names (`redis-server`, `redis-cli`, etc.) to the Valkey binaries installed by `make install`.
-The symlinks are created in same directory as the Valkey binaries.
-The symlinks are removed when using `make uninstall`.
-The creation of the symlinks can be skipped by setting the makefile variable `USE_REDIS_SYMLINKS=no`.
+For advanced configuration, refer to [DiceDB](https://dicedb.io) or [Valkey](https://valkey.io) documentation.
 
-`make install` will just install binaries in your system, but will not configure
-init scripts and configuration files in the appropriate place. This is not
-needed if you just want to play a bit with Valkey, but if you are installing
-it the proper way for a production system, we have a script that does this
-for Ubuntu and Debian systems:
+## Using DiceDB
 
-    % cd utils
-    % ./install_server.sh
+Use `dicedb-cli` or any compatible client.
 
-_Note_: `install_server.sh` will not work on Mac OSX; it is built for Linux only.
+Example:
 
-The script will ask you a few questions and will setup everything you need
-to run Valkey properly as a background daemon that will start again on
-system reboots.
+```
+./src/dicedb-cli
 
-You'll be able to stop and start Valkey using the script named
-`/etc/init.d/valkey_<portnumber>`, for instance `/etc/init.d/valkey_6379`.
+> ping
+> set foo bar
+> get foo
+> incr counter
+```
 
-Code contributions
------------------
-Please see the [CONTRIBUTING.md][2]. For security bugs and vulnerabilities, please see [SECURITY.md][3].
+## Sponsors
 
-[1]: https://github.com/valkey-io/valkey/blob/unstable/COPYING
-[2]: https://github.com/valkey-io/valkey/blob/unstable/CONTRIBUTING.md
-[3]: https://github.com/valkey-io/valkey/blob/unstable/SECURITY.md
+We are incredibly grateful to our sponsor(s) for their generous support, which makes the development of DiceDB possible.
 
-Valkey is an open community project under LF Projects
------------------
-Valkey a Series of LF Projects, LLC
-2810 N Church St, PMB 57274
-Wilmington, Delaware 19802-4447
+<a href="https://www.coderabbit.ai/?utm_source=github&utm_medium=social&utm_campaign=sponsor&utm_term=dicedb">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://www.coderabbit.ai/images/logo-white.svg">
+    <source media="(prefers-color-scheme: light)" srcset="https://www.coderabbit.ai/images/logo-orange.svg">
+    <img alt="CodeRabbit" src="https://www.coderabbit.ai/images/logo-orange.svg" width="240">
+  </picture>
+</a>
+
+## Support
+
+DiceDB has a strong vision and roadmap. If you find DiceDB useful, please consider supporting us by starring this repo and [sponsoring us on GitHub](https://github.com/sponsors/arpitbbhayani).
